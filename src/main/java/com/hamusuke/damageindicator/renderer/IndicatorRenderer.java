@@ -1,5 +1,6 @@
 package com.hamusuke.damageindicator.renderer;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.block.ShapeContext;
@@ -45,8 +46,9 @@ public class IndicatorRenderer {
     protected boolean field_28787;
     protected final Text text;
     protected long timeDelta;
+    protected final float distance;
 
-    public IndicatorRenderer(ClientWorld world, double x, double y, double z, Text text) {
+    public IndicatorRenderer(ClientWorld world, double x, double y, double z, Text text, float distance) {
         this.boundingBox = EMPTY_BOUNDING_BOX;
         this.collidesWithWorld = false;
         this.spacingXZ = 0.6F;
@@ -63,6 +65,7 @@ public class IndicatorRenderer {
         this.maxAge = 40;
         this.gravityStrength = -0.4F;
         this.text = text;
+        this.distance = distance / 2.0F;
     }
 
     public void tick() {
@@ -84,9 +87,8 @@ public class IndicatorRenderer {
     }
 
     public void render(MatrixStack matrix, VertexConsumerProvider vertexConsumers, Camera camera, int light, float tickDelta) {
-        float d = (float) camera.getPos().distanceTo(new Vec3d(this.x, this.y, this.z));
-        float scale = MathHelper.lerp((Util.getMeasuringTimeMs() - this.timeDelta) / 300.0F, 0.1F, 0.05F);
-        scale = MathHelper.clamp(scale, 0.025F, this.age > this.maxAge / 2 ? 0.05F : 0.1F);
+        float scale = MathHelper.lerp((Util.getMeasuringTimeMs() - this.timeDelta) / 300.0F, 0.05F * this.distance, 0.025F * this.distance);
+        scale = MathHelper.clamp(scale, 0.025F * this.distance, this.age > this.maxAge / 2 ? 0.025F * this.distance : 0.05F * this.distance);
         MinecraftClient client = MinecraftClient.getInstance();
         double x = MathHelper.lerp(tickDelta, this.prevPosX, this.x);
         double y = MathHelper.lerp(tickDelta, this.prevPosY, this.y);
@@ -100,15 +102,24 @@ public class IndicatorRenderer {
         matrix.translate(x - camX, y - camY, z - camZ);
         matrix.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(-camera.getYaw()));
         matrix.multiply(Vec3f.POSITIVE_X.getDegreesQuaternion(camera.getPitch()));
-        matrix.scale(-scale, -scale, scale * d);
+        matrix.scale(-scale, -scale, scale);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        int l = 255;
+        if (this.age > this.maxAge / 2 && this.age != 0) {
+            l = (int) ((((float) (this.maxAge + 1) / (float) this.age) - 1.0F) * 255.0F);
+        }
+        l = MathHelper.clamp(l, 0, 255);
 
         TextColor color = this.text.getStyle().getColor();
         if (color != null && color.getRgb() == 0) {
-            client.textRenderer.drawWithOutline(this.text.asOrderedText(), -client.textRenderer.getWidth(this.text) / 2.0F, -client.textRenderer.fontHeight / 2.0F, 0, 16777215, matrix.peek().getModel(), vertexConsumers, light);
+            client.textRenderer.drawWithOutline(this.text.asOrderedText(), -client.textRenderer.getWidth(this.text) / 2.0F, -client.textRenderer.fontHeight / 2.0F, l << 24, 16777215 + (l << 24), matrix.peek().getModel(), vertexConsumers, light);
         } else {
-            client.textRenderer.draw(this.text, -client.textRenderer.getWidth(this.text) / 2.0F, -client.textRenderer.fontHeight / 2.0F, 16777215, false, matrix.peek().getModel(), vertexConsumers, true, 0, light);
+            client.textRenderer.draw(this.text, -client.textRenderer.getWidth(this.text) / 2.0F, -client.textRenderer.fontHeight / 2.0F, 16777215 + (l << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, light);
         }
 
+        RenderSystem.disableBlend();
         matrix.pop();
     }
 

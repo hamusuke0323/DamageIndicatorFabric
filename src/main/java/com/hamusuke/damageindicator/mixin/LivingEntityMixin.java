@@ -1,6 +1,6 @@
 package com.hamusuke.damageindicator.mixin;
 
-import com.hamusuke.damageindicator.client.DamageIndicatorClient;
+import com.hamusuke.damageindicator.DamageIndicator;
 import com.hamusuke.damageindicator.network.NetworkManager;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.entity.Entity;
@@ -15,7 +15,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.Style;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -47,12 +46,12 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Inject(method = "heal", at = @At("HEAD"))
     private void heal(float amount, CallbackInfo ci) {
-        if (amount > 0.0F && this.getHealth() > 0.0F && this.getHealth() != this.getMaxHealth()) {
+        if (!this.world.isClient && amount > 0.0F && this.getHealth() > 0.0F && this.getHealth() != this.getMaxHealth()) {
             PacketByteBuf packetByteBuf = PacketByteBufs.create();
             packetByteBuf.writeDouble(this.getX());
             packetByteBuf.writeDouble(this.getBodyY(this.random.nextDouble() + 0.5D));
             packetByteBuf.writeDouble(this.getZ());
-            packetByteBuf.writeText(new LiteralText("+" + MathHelper.ceil(amount)).formatted(Formatting.GREEN));
+            packetByteBuf.writeText(new LiteralText("+" + DamageIndicator.ceil(amount)).formatted(Formatting.GREEN));
 
             ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
                 if (serverPlayerEntity.distanceTo(this) < 64) {
@@ -69,7 +68,7 @@ public abstract class LivingEntityMixin extends Entity {
             packetByteBuf.writeDouble(this.getX());
             packetByteBuf.writeDouble(this.getBodyY(this.random.nextDouble() + 0.5D));
             packetByteBuf.writeDouble(this.getZ());
-            packetByteBuf.writeText(new LiteralText(Integer.toString(MathHelper.ceil(amount))).setStyle(Style.EMPTY.withColor(DamageIndicatorClient.getColorFromDamageSource(source))));
+            packetByteBuf.writeText(new LiteralText(Long.toString(DamageIndicator.ceil(amount))).setStyle(Style.EMPTY.withColor(DamageIndicator.getColorFromDamageSource(source))));
 
             ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
                 if (serverPlayerEntity.distanceTo(this) < 64) {
