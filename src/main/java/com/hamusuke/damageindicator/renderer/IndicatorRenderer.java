@@ -1,22 +1,20 @@
 package com.hamusuke.damageindicator.renderer;
 
+import com.hamusuke.damageindicator.client.DamageIndicatorClient;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.ShapeContext;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Util;
-import net.minecraft.util.collection.ReusableStream;
 import net.minecraft.util.math.*;
 
 import java.util.Random;
-import java.util.stream.Stream;
 
 @Environment(EnvType.CLIENT)
 public class IndicatorRenderer {
@@ -32,9 +30,7 @@ public class IndicatorRenderer {
     protected double velocityY;
     protected double velocityZ;
     private Box boundingBox;
-    protected boolean onGround;
-    protected boolean collidesWithWorld;
-    private boolean field_21507;
+    private boolean moveTooQuickly;
     protected boolean dead;
     protected float spacingXZ;
     protected float spacingY;
@@ -42,20 +38,17 @@ public class IndicatorRenderer {
     protected int age;
     protected int maxAge;
     protected float gravityStrength;
-    protected float field_28786;
-    protected boolean field_28787;
+    protected float g;
     protected final Text text;
     protected long timeDelta;
     protected final float distance;
 
     public IndicatorRenderer(ClientWorld world, double x, double y, double z, Text text, float distance) {
         this.boundingBox = EMPTY_BOUNDING_BOX;
-        this.collidesWithWorld = false;
         this.spacingXZ = 0.6F;
         this.spacingY = 1.8F;
         this.random = new Random();
-        this.field_28786 = 0.98F;
-        this.field_28787 = false;
+        this.g = 0.98F;
         this.world = world;
         this.setBoundingBoxSpacing(0.2F, 0.2F);
         this.setPos(x, y, z);
@@ -82,7 +75,7 @@ public class IndicatorRenderer {
         } else if (this.age > this.maxAge / 2) {
             this.velocityY -= 0.04D * (double) this.gravityStrength;
             this.move(this.velocityX, this.velocityY, this.velocityZ);
-            this.velocityY *= this.field_28786;
+            this.velocityY *= this.g;
         }
     }
 
@@ -113,10 +106,11 @@ public class IndicatorRenderer {
         l = MathHelper.clamp(l, 0, 255);
 
         TextColor color = this.text.getStyle().getColor();
+        TextRenderer textRenderer = DamageIndicatorClient.getOrDefault(client.textRenderer);
         if (color != null && color.getRgb() == 0) {
-            client.textRenderer.drawWithOutline(this.text.asOrderedText(), -client.textRenderer.getWidth(this.text) / 2.0F, -client.textRenderer.fontHeight / 2.0F, l << 24, 16777215 + (l << 24), matrix.peek().getModel(), vertexConsumers, light);
+            textRenderer.drawWithOutline(this.text.asOrderedText(), -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, l << 24, 16777215 + (l << 24), matrix.peek().getModel(), vertexConsumers, light);
         } else {
-            client.textRenderer.draw(this.text, -client.textRenderer.getWidth(this.text) / 2.0F, -client.textRenderer.fontHeight / 2.0F, 16777215 + (l << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, light);
+            textRenderer.draw(this.text, -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, 16777215 + (l << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, light);
         }
 
         RenderSystem.disableBlend();
@@ -149,27 +143,17 @@ public class IndicatorRenderer {
     }
 
     public void move(double dx, double dy, double dz) {
-        if (!this.field_21507) {
-            double d = dx;
-            double e = dy;
-            if (this.collidesWithWorld && (dx != 0.0D || dy != 0.0D || dz != 0.0D)) {
-                Vec3d vec3d = Entity.adjustMovementForCollisions(null, new Vec3d(dx, dy, dz), this.getBoundingBox(), this.world, ShapeContext.absent(), new ReusableStream<>(Stream.empty()));
-                dx = vec3d.x;
-                dy = vec3d.y;
-                dz = vec3d.z;
-            }
-
+        if (!this.moveTooQuickly) {
             if (dx != 0.0D || dy != 0.0D || dz != 0.0D) {
                 this.setBoundingBox(this.getBoundingBox().offset(dx, dy, dz));
                 this.repositionFromBoundingBox();
             }
 
             if (Math.abs(dy) >= 9.999999747378752E-6D && Math.abs(dy) < 9.999999747378752E-6D) {
-                this.field_21507 = true;
+                this.moveTooQuickly = true;
             }
 
-            this.onGround = dy != dy && e < 0.0D;
-            if (d != dx) {
+            if (dx != dx) {
                 this.velocityX = 0.0D;
             }
 

@@ -8,7 +8,10 @@
   ],
   "client": [
     "client.WorldRendererMixin",
-    "client.ClientPlayNetworkHandlerMixin"
+    "client.ClientPlayNetworkHandlerMixin",
+    "client.SplashOverlayMixin",
+    "client.FontManagerMixin",
+    "client.MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1

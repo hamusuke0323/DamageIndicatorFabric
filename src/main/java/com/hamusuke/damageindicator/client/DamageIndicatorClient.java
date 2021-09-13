@@ -2,6 +2,10 @@ package com.hamusuke.damageindicator.client;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Queues;
+import com.hamusuke.damageindicator.DamageIndicator;
+import com.hamusuke.damageindicator.client.event.ResourceReloadCompleteEvent;
+import com.hamusuke.damageindicator.client.invoker.FontManagerInvoker;
+import com.hamusuke.damageindicator.client.invoker.MinecraftClientInvoker;
 import com.hamusuke.damageindicator.network.NetworkManager;
 import com.hamusuke.damageindicator.renderer.IndicatorRenderer;
 import net.fabricmc.api.ClientModInitializer;
@@ -11,11 +15,16 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.FontStorage;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -23,6 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class DamageIndicatorClient implements ClientModInitializer {
     public static final Queue<IndicatorRenderer> queue = Queues.newLinkedBlockingDeque();
     public static final AtomicBoolean canReceiveDamagePacket = new AtomicBoolean();
+    @Nullable
+    private static TextRenderer customFont;
 
     public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(NetworkManager.DAMAGE_PACKET_ID, (client, handler, buf, responseSender) -> {
@@ -60,9 +71,24 @@ public class DamageIndicatorClient implements ClientModInitializer {
                 queue.removeAll(list);
             }
         });
+
+        ResourceReloadCompleteEvent.EVENT.register(client -> {
+            FontManagerInvoker invoker = (FontManagerInvoker) ((MinecraftClientInvoker) client).getFontManager();
+            Map<Identifier, FontStorage> map = invoker.getFontStorages();
+            for (Map.Entry<Identifier, FontStorage> entry : map.entrySet()) {
+                Identifier identifier = entry.getKey();
+                if (identifier.getNamespace().equalsIgnoreCase(DamageIndicator.MOD_ID) || identifier.getPath().equalsIgnoreCase("default")) {
+                    customFont = new TextRenderer((id) -> entry.getValue());
+                }
+            }
+        });
     }
 
     public static void addRenderer(ClientWorld clientWorld, double x, double y, double z, Text text) {
         queue.add(new IndicatorRenderer(clientWorld, x, y, z, text, (float) MinecraftClient.getInstance().gameRenderer.getCamera().getPos().distanceTo(new Vec3d(x, y, z))));
+    }
+
+    public static TextRenderer getOrDefault(TextRenderer def) {
+        return customFont == null ? def : customFont;
     }
 }
