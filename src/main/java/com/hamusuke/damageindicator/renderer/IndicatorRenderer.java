@@ -8,18 +8,14 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.*;
 
-import java.util.Random;
-
 @Environment(EnvType.CLIENT)
 public class IndicatorRenderer {
     private static final Box EMPTY_BOUNDING_BOX = new Box(0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D);
-    protected final ClientWorld world;
     protected double prevPosX;
     protected double prevPosY;
     protected double prevPosZ;
@@ -34,7 +30,6 @@ public class IndicatorRenderer {
     protected boolean dead;
     protected float spacingXZ;
     protected float spacingY;
-    protected final Random random;
     protected int age;
     protected int maxAge;
     protected float gravityStrength;
@@ -43,20 +38,18 @@ public class IndicatorRenderer {
     protected long timeDelta;
     protected final float distance;
 
-    public IndicatorRenderer(ClientWorld world, double x, double y, double z, Text text, float distance) {
+    public IndicatorRenderer(double x, double y, double z, Text text, float distance) {
         this.boundingBox = EMPTY_BOUNDING_BOX;
         this.spacingXZ = 0.6F;
         this.spacingY = 1.8F;
-        this.random = new Random();
         this.g = 0.98F;
-        this.world = world;
         this.setBoundingBoxSpacing(0.2F, 0.2F);
         this.setPos(x, y, z);
         this.prevPosX = x;
         this.prevPosY = y;
         this.prevPosZ = z;
-        this.maxAge = 40;
-        this.gravityStrength = -0.4F;
+        this.maxAge = 20;
+        this.gravityStrength = -0.2F;
         this.text = text;
         this.distance = distance / 2.0F;
     }
@@ -130,7 +123,6 @@ public class IndicatorRenderer {
             double e = (box.minZ + box.maxZ - (double) spacingXZ) / 2.0D;
             this.setBoundingBox(new Box(d, box.minY, e, d + (double) this.spacingXZ, box.minY + (double) this.spacingY, e + (double) this.spacingXZ));
         }
-
     }
 
     public void setPos(double x, double y, double z) {
@@ -160,7 +152,6 @@ public class IndicatorRenderer {
             if (dz != dz) {
                 this.velocityZ = 0.0D;
             }
-
         }
     }
 

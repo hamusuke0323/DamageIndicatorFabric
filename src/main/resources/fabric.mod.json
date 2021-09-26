@@ -16,6 +16,9 @@
   "entrypoints": {
     "client": [
       "com.hamusuke.damageindicator.client.DamageIndicatorClient"
+    ],
+    "main": [
+      "com.hamusuke.damageindicator.DamageIndicator"
     ]
   },
   "mixins": [

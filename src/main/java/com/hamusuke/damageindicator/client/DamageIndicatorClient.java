@@ -17,7 +17,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.FontStorage;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
@@ -47,11 +46,7 @@ public class DamageIndicatorClient implements ClientModInitializer {
             double z = buf.readDouble();
             Text text = buf.readText();
 
-            if (client.player == null) {
-                return;
-            }
-
-            addRenderer(client.player.clientWorld, x, y, z, text);
+            addRenderer(x, y, z, text);
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -84,8 +79,8 @@ public class DamageIndicatorClient implements ClientModInitializer {
         });
     }
 
-    public static void addRenderer(ClientWorld clientWorld, double x, double y, double z, Text text) {
-        queue.add(new IndicatorRenderer(clientWorld, x, y, z, text, (float) MinecraftClient.getInstance().gameRenderer.getCamera().getPos().distanceTo(new Vec3d(x, y, z))));
+    public static void addRenderer(double x, double y, double z, Text text) {
+        queue.add(new IndicatorRenderer(x, y, z, text, (float) MinecraftClient.getInstance().gameRenderer.getCamera().getPos().distanceTo(new Vec3d(x, y, z))));
     }
 
     public static TextRenderer getOrDefault(TextRenderer def) {

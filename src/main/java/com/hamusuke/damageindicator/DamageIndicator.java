@@ -1,9 +1,18 @@
 package com.hamusuke.damageindicator;
 
+import com.hamusuke.damageindicator.command.SummonIndicatorCommand;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.minecraft.entity.damage.DamageSource;
 
-public class DamageIndicator {
+public class DamageIndicator implements ModInitializer {
     public static final String MOD_ID = "damageindicator";
+
+    public void onInitialize() {
+        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
+            SummonIndicatorCommand.register(dispatcher);
+        });
+    }
 
     public static long ceil(float value) {
         long l = (long) value;

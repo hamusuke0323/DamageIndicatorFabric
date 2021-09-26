@@ -47,10 +47,10 @@ public class ClientPlayNetworkHandlerMixin {
     }
 
     private void heal(LivingEntity target, float amount) {
-        DamageIndicatorClient.addRenderer(this.world, target.getX(), target.getY(), target.getZ(), new LiteralText("+" + DamageIndicator.ceil(amount)).formatted(Formatting.GREEN));
+        DamageIndicatorClient.addRenderer(target.getX(), target.getY(), target.getZ(), new LiteralText("+" + DamageIndicator.ceil(amount)).formatted(Formatting.GREEN));
     }
 
     private void damage(LivingEntity target, float amount) {
-        DamageIndicatorClient.addRenderer(this.world, target.getX(), target.getY(), target.getZ(), new LiteralText(Long.toString(DamageIndicator.ceil(amount))));
+        DamageIndicatorClient.addRenderer(target.getX(), target.getY(), target.getZ(), new LiteralText(Long.toString(DamageIndicator.ceil(amount))));
     }
 }
