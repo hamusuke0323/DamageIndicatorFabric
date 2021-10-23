@@ -4,14 +4,15 @@
   "package": "com.hamusuke.damageindicator.mixin",
   "compatibilityLevel": "JAVA_16",
   "mixins": [
-    "LivingEntityMixin"
+    "LivingEntityMixin",
+    "PlayerEntityMixin"
   ],
   "client": [
-    "client.WorldRendererMixin",
     "client.ClientPlayNetworkHandlerMixin",
-    "client.SplashOverlayMixin",
     "client.FontManagerMixin",
-    "client.MinecraftClientMixin"
+    "client.MinecraftClientMixin",
+    "client.SplashOverlayMixin",
+    "client.WorldRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

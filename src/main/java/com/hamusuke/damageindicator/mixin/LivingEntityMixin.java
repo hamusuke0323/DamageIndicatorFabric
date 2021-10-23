@@ -1,6 +1,8 @@
 package com.hamusuke.damageindicator.mixin;
 
 import com.hamusuke.damageindicator.DamageIndicator;
+import com.hamusuke.damageindicator.client.invoker.PlayerEntityInvoker;
+import com.hamusuke.damageindicator.network.DamageIndicatorPacket;
 import com.hamusuke.damageindicator.network.NetworkManager;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.entity.Entity;
@@ -9,12 +11,14 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.PersistentProjectileEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.LiteralText;
-import net.minecraft.text.Style;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -25,6 +29,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
+    private static final float CRITICAL = 1.5F;
+
     @Shadow
     public abstract float getHealth();
 
@@ -46,12 +52,10 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Inject(method = "heal", at = @At("HEAD"))
     private void heal(float amount, CallbackInfo ci) {
-        if (!this.world.isClient && amount > 0.0F && this.getHealth() > 0.0F && this.getHealth() != this.getMaxHealth()) {
+        amount = Math.min(this.getMaxHealth() - this.getHealth(), amount);
+        if (!this.world.isClient && amount > 0.0F) {
             PacketByteBuf packetByteBuf = PacketByteBufs.create();
-            packetByteBuf.writeDouble(this.getX());
-            packetByteBuf.writeDouble(this.getBodyY(this.random.nextDouble() + 0.5D));
-            packetByteBuf.writeDouble(this.getZ());
-            packetByteBuf.writeText(new LiteralText("+" + DamageIndicator.ceil(amount)).formatted(Formatting.GREEN));
+            new DamageIndicatorPacket(this.getX(), this.getBodyY(this.random.nextDouble() + 0.5D), this.getZ(), new LiteralText("+" + MathHelper.ceil(amount)).formatted(Formatting.GREEN), 1.0F).write(packetByteBuf);
 
             ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
                 if (serverPlayerEntity.distanceTo(this) < 64) {
@@ -64,11 +68,17 @@ public abstract class LivingEntityMixin extends Entity {
     @Inject(method = "damage", at = @At("HEAD"))
     private void damage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (!this.isInvulnerableTo(source) && !this.world.isClient && !this.isDead() && !(source.isFire() && this.hasStatusEffect(StatusEffects.FIRE_RESISTANCE)) && amount > 0.0F) {
+            float scaleMul = 1.0F;
+            if (source.getAttacker() instanceof PlayerEntity playerEntity) {
+                scaleMul = ((PlayerEntityInvoker) playerEntity).isCritical() ? CRITICAL : 1.0F;
+            }
+
+            if (source.getSource() instanceof PersistentProjectileEntity projectile) {
+                scaleMul = projectile.isCritical() ? CRITICAL : 1.0F;
+            }
+
             PacketByteBuf packetByteBuf = PacketByteBufs.create();
-            packetByteBuf.writeDouble(this.getX());
-            packetByteBuf.writeDouble(this.getBodyY(this.random.nextDouble() + 0.5D));
-            packetByteBuf.writeDouble(this.getZ());
-            packetByteBuf.writeText(new LiteralText(Long.toString(DamageIndicator.ceil(amount))).setStyle(Style.EMPTY.withColor(DamageIndicator.getColorFromDamageSource(source))));
+            new DamageIndicatorPacket(this.getX(), this.getBodyY(this.random.nextDouble() + 0.5D), this.getZ(), new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), scaleMul).write(packetByteBuf);
 
             ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
                 if (serverPlayerEntity.distanceTo(this) < 64) {

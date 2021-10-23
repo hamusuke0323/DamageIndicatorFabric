@@ -6,6 +6,7 @@ import com.hamusuke.damageindicator.DamageIndicator;
 import com.hamusuke.damageindicator.client.event.ResourceReloadCompleteEvent;
 import com.hamusuke.damageindicator.client.invoker.FontManagerInvoker;
 import com.hamusuke.damageindicator.client.invoker.MinecraftClientInvoker;
+import com.hamusuke.damageindicator.network.DamageIndicatorPacket;
 import com.hamusuke.damageindicator.network.NetworkManager;
 import com.hamusuke.damageindicator.renderer.IndicatorRenderer;
 import net.fabricmc.api.ClientModInitializer;
@@ -34,6 +35,10 @@ public class DamageIndicatorClient implements ClientModInitializer {
     @Nullable
     private static TextRenderer customFont;
 
+    public static void addRenderer(double x, double y, double z, Text text, float scaleMultiplier) {
+        queue.add(new IndicatorRenderer(x, y, z, text, (float) MinecraftClient.getInstance().gameRenderer.getCamera().getPos().distanceTo(new Vec3d(x, y, z)), scaleMultiplier));
+    }
+
     public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(NetworkManager.DAMAGE_PACKET_ID, (client, handler, buf, responseSender) -> {
             if (!canReceiveDamagePacket.get()) {
@@ -41,17 +46,11 @@ public class DamageIndicatorClient implements ClientModInitializer {
                 return;
             }
 
-            double x = buf.readDouble();
-            double y = buf.readDouble();
-            double z = buf.readDouble();
-            Text text = buf.readText();
-
-            addRenderer(x, y, z, text);
+            DamageIndicatorPacket packet = new DamageIndicatorPacket(buf);
+            addRenderer(packet.getX(), packet.getY(), packet.getZ(), packet.getText(), packet.getScaleMultiplier());
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            canReceiveDamagePacket.set(false);
-        });
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> canReceiveDamagePacket.set(false));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!client.isPaused()) {
@@ -77,10 +76,6 @@ public class DamageIndicatorClient implements ClientModInitializer {
                 }
             }
         });
-    }
-
-    public static void addRenderer(double x, double y, double z, Text text) {
-        queue.add(new IndicatorRenderer(x, y, z, text, (float) MinecraftClient.getInstance().gameRenderer.getCamera().getPos().distanceTo(new Vec3d(x, y, z))));
     }
 
     public static TextRenderer getOrDefault(TextRenderer def) {

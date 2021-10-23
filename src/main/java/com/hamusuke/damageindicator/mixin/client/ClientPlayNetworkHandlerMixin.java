@@ -1,6 +1,5 @@
 package com.hamusuke.damageindicator.mixin.client;
 
-import com.hamusuke.damageindicator.DamageIndicator;
 import com.hamusuke.damageindicator.client.DamageIndicatorClient;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -12,6 +11,7 @@ import net.minecraft.entity.data.DataTracker;
 import net.minecraft.network.packet.s2c.play.EntityTrackerUpdateS2CPacket;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -47,10 +47,10 @@ public class ClientPlayNetworkHandlerMixin {
     }
 
     private void heal(LivingEntity target, float amount) {
-        DamageIndicatorClient.addRenderer(target.getX(), target.getY(), target.getZ(), new LiteralText("+" + DamageIndicator.ceil(amount)).formatted(Formatting.GREEN));
+        DamageIndicatorClient.addRenderer(target.getX(), target.getY(), target.getZ(), new LiteralText("+" + MathHelper.ceil(amount)).formatted(Formatting.GREEN), 1.0F);
     }
 
     private void damage(LivingEntity target, float amount) {
-        DamageIndicatorClient.addRenderer(target.getX(), target.getY(), target.getZ(), new LiteralText(Long.toString(DamageIndicator.ceil(amount))));
+        DamageIndicatorClient.addRenderer(target.getX(), target.getY(), target.getZ(), new LiteralText("" + MathHelper.ceil(amount)), 1.0F);
     }
 }

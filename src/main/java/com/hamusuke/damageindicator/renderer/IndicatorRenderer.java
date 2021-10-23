@@ -6,12 +6,16 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.*;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.*;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3f;
 
 @Environment(EnvType.CLIENT)
 public class IndicatorRenderer {
@@ -37,8 +41,9 @@ public class IndicatorRenderer {
     protected final Text text;
     protected long timeDelta;
     protected final float distance;
+    protected final float scaleMultiplier;
 
-    public IndicatorRenderer(double x, double y, double z, Text text, float distance) {
+    public IndicatorRenderer(double x, double y, double z, Text text, float distance, float scaleMultiplier) {
         this.boundingBox = EMPTY_BOUNDING_BOX;
         this.spacingXZ = 0.6F;
         this.spacingY = 1.8F;
@@ -51,7 +56,8 @@ public class IndicatorRenderer {
         this.maxAge = 20;
         this.gravityStrength = -0.2F;
         this.text = text;
-        this.distance = distance / 2.0F;
+        this.distance = distance;
+        this.scaleMultiplier = MathHelper.clamp(scaleMultiplier, 1.0F, 2.0F);
     }
 
     public void tick() {
@@ -73,8 +79,8 @@ public class IndicatorRenderer {
     }
 
     public void render(MatrixStack matrix, VertexConsumerProvider vertexConsumers, Camera camera, int light, float tickDelta) {
-        float scale = MathHelper.lerp((Util.getMeasuringTimeMs() - this.timeDelta) / 300.0F, 0.05F * this.distance, 0.025F * this.distance);
-        scale = MathHelper.clamp(scale, 0.025F * this.distance, this.age > this.maxAge / 2 ? 0.025F * this.distance : 0.05F * this.distance);
+        float scale = MathHelper.lerp((Util.getMeasuringTimeMs() - this.timeDelta) / 300.0F * this.scaleMultiplier, 0.025F * this.distance * this.scaleMultiplier * this.scaleMultiplier, 0.0125F * this.distance * this.scaleMultiplier);
+        scale = MathHelper.clamp(scale, 0.0125F * this.distance * this.scaleMultiplier, this.age > this.maxAge / 2 ? 0.0125F * this.distance * this.scaleMultiplier : 0.025F * this.distance * this.scaleMultiplier * this.scaleMultiplier);
         MinecraftClient client = MinecraftClient.getInstance();
         double x = MathHelper.lerp(tickDelta, this.prevPosX, this.x);
         double y = MathHelper.lerp(tickDelta, this.prevPosY, this.y);

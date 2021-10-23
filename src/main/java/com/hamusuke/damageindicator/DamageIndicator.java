@@ -14,11 +14,6 @@ public class DamageIndicator implements ModInitializer {
         });
     }
 
-    public static long ceil(float value) {
-        long l = (long) value;
-        return value > (float) l ? l + 1 : l;
-    }
-
     public static int getColorFromDamageSource(DamageSource source) {
         if (source.isFire()) {
             return 16750080;
