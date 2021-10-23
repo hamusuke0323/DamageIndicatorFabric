@@ -9,8 +9,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.PersistentProjectileEntity;
 import net.minecraft.network.PacketByteBuf;
@@ -25,7 +23,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
@@ -39,12 +36,6 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
     public abstract boolean canBeRiddenInWater();
-
-    @Shadow
-    public abstract boolean isDead();
-
-    @Shadow
-    public abstract boolean hasStatusEffect(StatusEffect effect);
 
     LivingEntityMixin(EntityType<?> type, World world) {
         super(type, world);
@@ -65,26 +56,24 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @Inject(method = "damage", at = @At("HEAD"))
-    private void damage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        if (!this.isInvulnerableTo(source) && !this.world.isClient && !this.isDead() && !(source.isFire() && this.hasStatusEffect(StatusEffects.FIRE_RESISTANCE)) && amount > 0.0F) {
-            float scaleMul = 1.0F;
-            if (source.getAttacker() instanceof PlayerEntity playerEntity) {
-                scaleMul = ((PlayerEntityInvoker) playerEntity).isCritical() ? CRITICAL : 1.0F;
-            }
-
-            if (source.getSource() instanceof PersistentProjectileEntity projectile) {
-                scaleMul = projectile.isCritical() ? CRITICAL : 1.0F;
-            }
-
-            PacketByteBuf packetByteBuf = PacketByteBufs.create();
-            new DamageIndicatorPacket(this.getX(), this.getBodyY(this.random.nextDouble() + 0.5D), this.getZ(), new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), scaleMul).write(packetByteBuf);
-
-            ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
-                if (serverPlayerEntity.distanceTo(this) < 64) {
-                    serverPlayerEntity.networkHandler.sendPacket(new CustomPayloadS2CPacket(NetworkManager.DAMAGE_PACKET_ID, packetByteBuf));
-                }
-            });
+    @Inject(method = "applyDamage", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;setHealth(F)V", shift = At.Shift.AFTER))
+    private void applyDamage(DamageSource source, float amount, CallbackInfo ci) {
+        float scaleMul = 1.0F;
+        if (source.getAttacker() instanceof PlayerEntity playerEntity) {
+            scaleMul = ((PlayerEntityInvoker) playerEntity).isCritical() ? CRITICAL : 1.0F;
         }
+
+        if (source.getSource() instanceof PersistentProjectileEntity projectile) {
+            scaleMul = projectile.isCritical() ? CRITICAL : 1.0F;
+        }
+
+        PacketByteBuf packetByteBuf = PacketByteBufs.create();
+        new DamageIndicatorPacket(this.getX(), this.getBodyY(this.random.nextDouble() + 0.5D), this.getZ(), new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), scaleMul).write(packetByteBuf);
+
+        ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
+            if (serverPlayerEntity.distanceTo(this) < 64) {
+                serverPlayerEntity.networkHandler.sendPacket(new CustomPayloadS2CPacket(NetworkManager.DAMAGE_PACKET_ID, packetByteBuf));
+            }
+        });
     }
 }

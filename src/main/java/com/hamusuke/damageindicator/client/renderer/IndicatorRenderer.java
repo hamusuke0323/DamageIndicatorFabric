@@ -1,4 +1,4 @@
-package com.hamusuke.damageindicator.renderer;
+package com.hamusuke.damageindicator.client.renderer;
 
 import com.hamusuke.damageindicator.client.DamageIndicatorClient;
 import com.mojang.blaze3d.systems.RenderSystem;

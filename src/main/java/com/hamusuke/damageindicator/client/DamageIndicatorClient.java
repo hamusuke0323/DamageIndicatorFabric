@@ -6,9 +6,9 @@ import com.hamusuke.damageindicator.DamageIndicator;
 import com.hamusuke.damageindicator.client.event.ResourceReloadCompleteEvent;
 import com.hamusuke.damageindicator.client.invoker.FontManagerInvoker;
 import com.hamusuke.damageindicator.client.invoker.MinecraftClientInvoker;
+import com.hamusuke.damageindicator.client.renderer.IndicatorRenderer;
 import com.hamusuke.damageindicator.network.DamageIndicatorPacket;
 import com.hamusuke.damageindicator.network.NetworkManager;
-import com.hamusuke.damageindicator.renderer.IndicatorRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -43,7 +43,6 @@ public class DamageIndicatorClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(NetworkManager.DAMAGE_PACKET_ID, (client, handler, buf, responseSender) -> {
             if (!canReceiveDamagePacket.get()) {
                 canReceiveDamagePacket.set(true);
-                return;
             }
 
             DamageIndicatorPacket packet = new DamageIndicatorPacket(buf);
