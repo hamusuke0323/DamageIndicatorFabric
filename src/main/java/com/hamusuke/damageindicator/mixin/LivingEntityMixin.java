@@ -9,7 +9,10 @@ import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.boss.WitherEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.mob.ShulkerEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.LiteralText;
@@ -52,23 +55,14 @@ public abstract class LivingEntityMixin extends Entity implements ILivingEntityI
 
     @Inject(method = "damage", at = @At("RETURN"))
     private void damage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        if (!this.world.isClient && !cir.getReturnValue() && !this.isDead() && (float) this.timeUntilRegen <= 10.0F && amount > this.lastDamageTaken) {
+        if (!this.world.isClient && !cir.getReturnValue() && !this.isDead() && (float) this.timeUntilRegen <= 10.0F && amount > this.lastDamageTaken && !((Object) this instanceof PlayerEntity) && !((Object) this instanceof ShulkerEntity) && !((Object) this instanceof WitherEntity)) {
             this.sendImmune();
         }
     }
 
     @Inject(method = "applyDamage", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;setHealth(F)V", shift = At.Shift.AFTER))
     private void applyDamage(DamageSource source, float amount, CallbackInfo ci) {
-        float scaleMul = DamageIndicator.NORMAL;
-
-        if (source.getAttacker() instanceof LivingEntityInvoker invoker) {
-            if (invoker.isCritical()) {
-                scaleMul = DamageIndicator.CRITICAL;
-                invoker.setCritical(false);
-            }
-        }
-
-        this.send(new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), scaleMul);
+        this.send(new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), source.getAttacker() instanceof LivingEntityInvoker invoker && invoker.isCritical() ? DamageIndicator.CRITICAL : DamageIndicator.NORMAL);
     }
 
     @Override

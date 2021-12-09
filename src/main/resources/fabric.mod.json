@@ -21,7 +21,8 @@
     "fabricloader": ">=0.11.3",
     "fabric": "*",
     "minecraft": "1.17.x",
-    "java": ">=16"
+    "java": ">=16",
+    "criticalib": ">=1.0.2"
   },
   "suggests": {
     "another-mod": "*"
