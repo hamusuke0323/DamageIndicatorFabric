@@ -1,6 +1,8 @@
 package com.hamusuke.damageindicator.mixin;
 
+import com.hamusuke.damageindicator.invoker.ILivingEntityInvoker;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -11,9 +13,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(PlayerEntity.class)
-public abstract class PlayerEntityMixin extends LivingEntityMixin {
-    PlayerEntityMixin(EntityType<?> type, World world) {
-        super(type, world);
+public abstract class PlayerEntityMixin extends LivingEntity implements ILivingEntityInvoker {
+    PlayerEntityMixin(EntityType<? extends LivingEntity> entityType, World world) {
+        super(entityType, world);
     }
 
     @Inject(method = "damage", at = @At("RETURN"))
