@@ -1,7 +1,6 @@
 package com.hamusuke.damageindicator.mixin.client;
 
-import com.google.common.collect.ImmutableMap;
-import com.hamusuke.damageindicator.client.invoker.FontManagerInvoker;
+import com.hamusuke.damageindicator.invoker.client.FontManagerInvoker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.font.FontManager;
@@ -20,7 +19,8 @@ public abstract class FontManagerMixin implements FontManagerInvoker {
     @Final
     Map<Identifier, FontStorage> fontStorages;
 
-    public ImmutableMap<Identifier, FontStorage> getFontStorages() {
-        return ImmutableMap.copyOf(this.fontStorages);
+    @Override
+    public Map<Identifier, FontStorage> getFontStorages() {
+        return this.fontStorages;
     }
 }

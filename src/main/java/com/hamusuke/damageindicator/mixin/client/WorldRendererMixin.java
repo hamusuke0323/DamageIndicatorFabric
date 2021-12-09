@@ -19,16 +19,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class WorldRendererMixin {
     @Shadow
     @Final
-    private BufferBuilderStorage bufferBuilders;
-
-    @Shadow
-    @Final
     private MinecraftClient client;
 
     @Inject(method = "render", at = @At("TAIL"))
     private void render(MatrixStack matrices, float tickDelta, long limitTime, boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer, LightmapTextureManager lightmapTextureManager, Matrix4f matrix4f, CallbackInfo ci) {
         if (!this.client.options.hudHidden && !DamageIndicatorClient.queue.isEmpty()) {
-            DamageIndicatorClient.queue.forEach(indicatorRenderer -> indicatorRenderer.render(matrices, this.bufferBuilders.getEntityVertexConsumers(), camera, 15728880, tickDelta));
+            this.client.getProfiler().push("damage indicator rendering");
+            VertexConsumerProvider.Immediate impl = this.client.getBufferBuilders().getEntityVertexConsumers();
+            matrices.push();
+            DamageIndicatorClient.queue.forEach(indicatorRenderer -> indicatorRenderer.render(matrices, impl, this.client.getEntityRenderDispatcher().camera, tickDelta));
+            matrices.pop();
+            impl.draw();
+            this.client.getProfiler().pop();
         }
     }
 }

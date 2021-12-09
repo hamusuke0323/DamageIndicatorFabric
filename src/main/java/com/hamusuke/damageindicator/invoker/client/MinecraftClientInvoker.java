@@ -1,4 +1,4 @@
-package com.hamusuke.damageindicator.client.invoker;
+package com.hamusuke.damageindicator.invoker.client;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;

@@ -3,22 +3,15 @@
   "id": "damageindicator",
   "version": "${version}",
   "name": "Damage Indicator",
-  "description": "damage indicator",
+  "description": "simple damage indicator",
   "authors": [
     "hamusuke2303"
   ],
-  "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
-  },
   "license": "CC0-1.0",
   "environment": "*",
   "entrypoints": {
     "client": [
       "com.hamusuke.damageindicator.client.DamageIndicatorClient"
-    ],
-    "main": [
-      "com.hamusuke.damageindicator.DamageIndicator"
     ]
   },
   "mixins": [

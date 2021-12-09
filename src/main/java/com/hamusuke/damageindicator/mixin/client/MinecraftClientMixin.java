@@ -1,6 +1,6 @@
 package com.hamusuke.damageindicator.mixin.client;
 
-import com.hamusuke.damageindicator.client.invoker.MinecraftClientInvoker;
+import com.hamusuke.damageindicator.invoker.client.MinecraftClientInvoker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;

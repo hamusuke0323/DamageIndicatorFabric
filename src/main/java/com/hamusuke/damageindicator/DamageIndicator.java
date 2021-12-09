@@ -1,18 +1,11 @@
 package com.hamusuke.damageindicator;
 
-import com.hamusuke.damageindicator.command.SummonIndicatorCommand;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.minecraft.entity.damage.DamageSource;
 
-public class DamageIndicator implements ModInitializer {
+public class DamageIndicator {
     public static final String MOD_ID = "damageindicator";
-
-    public void onInitialize() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
-            SummonIndicatorCommand.register(dispatcher);
-        });
-    }
+    public static final float NORMAL = 1.0F;
+    public static final float CRITICAL = 2.0F;
 
     public static int getColorFromDamageSource(DamageSource source) {
         if (source.isFire()) {

@@ -26,12 +26,13 @@ public class DamageIndicatorPacket {
         this.scaleMultiplier = packetByteBuf.isReadable() ? packetByteBuf.readFloat() : 1.0F;
     }
 
-    public void write(PacketByteBuf packetByteBuf) {
+    public PacketByteBuf write(PacketByteBuf packetByteBuf) {
         packetByteBuf.writeDouble(this.x);
         packetByteBuf.writeDouble(this.y);
         packetByteBuf.writeDouble(this.z);
         packetByteBuf.writeText(this.text);
         packetByteBuf.writeFloat(this.scaleMultiplier);
+        return packetByteBuf;
     }
 
     public double getX() {

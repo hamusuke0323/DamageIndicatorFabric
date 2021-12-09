@@ -1,7 +1,8 @@
 package com.hamusuke.damageindicator.mixin;
 
+import com.hamusuke.criticalib.invoker.LivingEntityInvoker;
 import com.hamusuke.damageindicator.DamageIndicator;
-import com.hamusuke.damageindicator.client.invoker.PlayerEntityInvoker;
+import com.hamusuke.damageindicator.invoker.ILivingEntityInvoker;
 import com.hamusuke.damageindicator.network.DamageIndicatorPacket;
 import com.hamusuke.damageindicator.network.NetworkManager;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
@@ -9,12 +10,12 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.damage.ProjectileDamageSource;
 import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
@@ -25,9 +26,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LivingEntity.class)
-public abstract class LivingEntityMixin extends Entity {
-    private static final float CRITICAL = 1.5F;
-
+public abstract class LivingEntityMixin extends Entity implements ILivingEntityInvoker {
     @Shadow
     public abstract float getHealth();
 
@@ -35,7 +34,7 @@ public abstract class LivingEntityMixin extends Entity {
     public abstract float getMaxHealth();
 
     @Shadow
-    public abstract boolean canBeRiddenInWater();
+    public abstract boolean isDead();
 
     LivingEntityMixin(EntityType<?> type, World world) {
         super(type, world);
@@ -45,35 +44,40 @@ public abstract class LivingEntityMixin extends Entity {
     private void heal(float amount, CallbackInfo ci) {
         amount = Math.min(this.getMaxHealth() - this.getHealth(), amount);
         if (!this.world.isClient && amount > 0.0F) {
-            PacketByteBuf packetByteBuf = PacketByteBufs.create();
-            new DamageIndicatorPacket(this.getX(), this.getBodyY(this.random.nextDouble() + 0.5D), this.getZ(), new LiteralText("+" + MathHelper.ceil(amount)).formatted(Formatting.GREEN), 1.0F).write(packetByteBuf);
+            this.send(new LiteralText("+" + MathHelper.ceil(amount)).formatted(Formatting.GREEN), DamageIndicator.NORMAL);
+        }
+    }
 
-            ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
-                if (serverPlayerEntity.distanceTo(this) < 64) {
-                    serverPlayerEntity.networkHandler.sendPacket(new CustomPayloadS2CPacket(NetworkManager.DAMAGE_PACKET_ID, packetByteBuf));
-                }
-            });
+    @Inject(method = "applyDamage", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;applyArmorToDamage(Lnet/minecraft/entity/damage/DamageSource;F)F", shift = At.Shift.BEFORE))
+    private void applyDamageFirst(DamageSource source, float amount, CallbackInfo ci) {
+        if (source instanceof ProjectileDamageSource && source.getAttacker() instanceof LivingEntityInvoker livingEntityInvoker && source.getSource() instanceof PersistentProjectileEntity projectile) {
+            livingEntityInvoker.setCritical(projectile.isCritical());
         }
     }
 
     @Inject(method = "applyDamage", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;setHealth(F)V", shift = At.Shift.AFTER))
     private void applyDamage(DamageSource source, float amount, CallbackInfo ci) {
-        float scaleMul = 1.0F;
-        if (source.getAttacker() instanceof PlayerEntity playerEntity) {
-            scaleMul = ((PlayerEntityInvoker) playerEntity).isCritical() ? CRITICAL : 1.0F;
-        }
+        float scaleMul = DamageIndicator.NORMAL;
 
-        if (source.getSource() instanceof PersistentProjectileEntity projectile) {
-            scaleMul = projectile.isCritical() ? CRITICAL : 1.0F;
-        }
-
-        PacketByteBuf packetByteBuf = PacketByteBufs.create();
-        new DamageIndicatorPacket(this.getX(), this.getBodyY(this.random.nextDouble() + 0.5D), this.getZ(), new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), scaleMul).write(packetByteBuf);
-
-        ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
-            if (serverPlayerEntity.distanceTo(this) < 64) {
-                serverPlayerEntity.networkHandler.sendPacket(new CustomPayloadS2CPacket(NetworkManager.DAMAGE_PACKET_ID, packetByteBuf));
+        if (source.getAttacker() instanceof LivingEntityInvoker invoker) {
+            if (invoker.isCritical()) {
+                scaleMul = DamageIndicator.CRITICAL;
+                invoker.setCritical(false);
             }
-        });
+        }
+
+        this.send(new LiteralText("" + MathHelper.ceil(amount)).styled(style -> style.withColor(DamageIndicator.getColorFromDamageSource(source))), scaleMul);
+    }
+
+    @Override
+    public void send(Text text, float scaleMul) {
+        if (!this.world.isClient) {
+            DamageIndicatorPacket damageIndicatorPacket = new DamageIndicatorPacket(this.getParticleX(0.5D), this.getBodyY(MathHelper.nextDouble(this.random, 0.5D, 1.2D)), this.getParticleZ(0.5D), text, scaleMul);
+            ((ServerWorld) this.world).getPlayers().forEach(serverPlayerEntity -> {
+                if (serverPlayerEntity.distanceTo(this) < 64) {
+                    serverPlayerEntity.networkHandler.sendPacket(new CustomPayloadS2CPacket(NetworkManager.DAMAGE_PACKET_ID, damageIndicatorPacket.write(PacketByteBufs.create())));
+                }
+            });
+        }
     }
 }

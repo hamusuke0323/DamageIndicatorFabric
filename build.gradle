@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '0.9-SNAPSHOT'
+	id 'fabric-loom' version '0.10-SNAPSHOT'
 	id 'maven-publish'
 }
 
@@ -11,11 +11,13 @@ version = project.mod_version
 group = project.maven_group
 
 repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
+	maven {
+		url = uri("https://maven.pkg.github.com/hamusuke0323/CriticaLib")
+		credentials {
+			username = System.getenv("GITHUB_USER")
+			password = System.getenv("GITHUB_KEY")
+		}
+	}
 }
 
 dependencies {
@@ -29,6 +31,8 @@ dependencies {
 
 	// PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
 	// You may need to force-disable transitiveness on them.
+
+	modImplementation "com.hamusuke:criticalib:1.0.0"
 }
 
 processResources {
@@ -67,21 +71,20 @@ jar {
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
-			// add all the jars that should be included when publishing to maven
-			artifact(remapJar) {
-				builtBy remapJar
-			}
-			artifact(sourcesJar) {
-				builtBy remapSourcesJar
-			}
+			artifactId = archivesBaseName
+			from components.java
 		}
 	}
 
 	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
 	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
+		maven {
+			name = "GitHubPackages"
+			url = uri("https://maven.pkg.github.com/hamusuke0323/DamageIndicatorFabric")
+			credentials {
+				username = System.getenv("GITHUB_USER")
+				password = System.getenv("GITHUB_KEY")
+			}
+		}
 	}
 }

@@ -5,14 +5,16 @@
   "compatibilityLevel": "JAVA_16",
   "mixins": [
     "LivingEntityMixin",
-    "PlayerEntityMixin"
+    "PlayerEntityMixin",
+    "ServerPlayerEntityMixin",
+    "ShulkerEntityMixin",
+    "WitherEntityMixin"
   ],
   "client": [
-    "client.ClientPlayNetworkHandlerMixin",
+    "client.WorldRendererMixin",
     "client.FontManagerMixin",
     "client.MinecraftClientMixin",
-    "client.SplashOverlayMixin",
-    "client.WorldRendererMixin"
+    "client.SplashOverlayMixin"
   ],
   "injectors": {
     "defaultRequire": 1

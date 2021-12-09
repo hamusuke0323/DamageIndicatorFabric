@@ -1,5 +1,6 @@
 package com.hamusuke.damageindicator.client.renderer;
 
+import com.hamusuke.damageindicator.DamageIndicator;
 import com.hamusuke.damageindicator.client.DamageIndicatorClient;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
@@ -10,7 +11,6 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
@@ -39,9 +39,13 @@ public class IndicatorRenderer {
     protected float gravityStrength;
     protected float g;
     protected final Text text;
-    protected long timeDelta;
+    protected float textWidth = -1.0F;
+    protected long startedTickingTimeMs;
     protected final float distance;
     protected final float scaleMultiplier;
+    protected float currentScale = Float.NaN;
+    protected boolean paused;
+    protected long passedTimeMs;
 
     public IndicatorRenderer(double x, double y, double z, Text text, float distance, float scaleMultiplier) {
         this.boundingBox = EMPTY_BOUNDING_BOX;
@@ -57,17 +61,14 @@ public class IndicatorRenderer {
         this.gravityStrength = -0.2F;
         this.text = text;
         this.distance = distance;
-        this.scaleMultiplier = MathHelper.clamp(scaleMultiplier, 1.0F, 2.0F);
+        this.scaleMultiplier = MathHelper.clamp(scaleMultiplier, DamageIndicator.NORMAL, DamageIndicator.CRITICAL);
+        this.startedTickingTimeMs = Util.getMeasuringTimeMs();
     }
 
     public void tick() {
         this.prevPosX = this.x;
         this.prevPosY = this.y;
         this.prevPosZ = this.z;
-
-        if (this.age == 0) {
-            this.timeDelta = Util.getMeasuringTimeMs();
-        }
 
         if (this.age++ >= this.maxAge) {
             this.markDead();
@@ -78,10 +79,20 @@ public class IndicatorRenderer {
         }
     }
 
-    public void render(MatrixStack matrix, VertexConsumerProvider vertexConsumers, Camera camera, int light, float tickDelta) {
-        float scale = MathHelper.lerp((Util.getMeasuringTimeMs() - this.timeDelta) / 300.0F * this.scaleMultiplier, 0.025F * this.distance * this.scaleMultiplier * this.scaleMultiplier, 0.0125F * this.distance * this.scaleMultiplier);
-        scale = MathHelper.clamp(scale, 0.0125F * this.distance * this.scaleMultiplier, this.age > this.maxAge / 2 ? 0.0125F * this.distance * this.scaleMultiplier : 0.025F * this.distance * this.scaleMultiplier * this.scaleMultiplier);
+    public void render(MatrixStack matrix, VertexConsumerProvider vertexConsumers, Camera camera, float tickDelta) {
         MinecraftClient client = MinecraftClient.getInstance();
+        TextRenderer textRenderer = DamageIndicatorClient.getOrDefault(client.textRenderer);
+
+        if (this.textWidth < 0.0F) {
+            this.textWidth = (float) textRenderer.getWidth(this.text);
+        }
+
+        if (this.textWidth == 0.0F) {
+            this.markDead();
+            return;
+        }
+
+        float scale = this.calculateScale(client.isPaused());
         double x = MathHelper.lerp(tickDelta, this.prevPosX, this.x);
         double y = MathHelper.lerp(tickDelta, this.prevPosY, this.y);
         double z = MathHelper.lerp(tickDelta, this.prevPosZ, this.z);
@@ -97,23 +108,39 @@ public class IndicatorRenderer {
         matrix.scale(-scale, -scale, scale);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(false);
 
         int l = 255;
         if (this.age > this.maxAge / 2 && this.age != 0) {
             l = (int) ((((float) (this.maxAge + 1) / (float) this.age) - 1.0F) * 255.0F);
         }
         l = MathHelper.clamp(l, 0, 255);
+        textRenderer.draw(this.text, -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, 16777215 + (l << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, 15728880);
+        RenderSystem.disableBlend();
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(true);
+        matrix.pop();
+    }
 
-        TextColor color = this.text.getStyle().getColor();
-        TextRenderer textRenderer = DamageIndicatorClient.getOrDefault(client.textRenderer);
-        if (color != null && color.getRgb() == 0) {
-            textRenderer.drawWithOutline(this.text.asOrderedText(), -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, l << 24, 16777215 + (l << 24), matrix.peek().getModel(), vertexConsumers, light);
-        } else {
-            textRenderer.draw(this.text, -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, 16777215 + (l << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, light);
+    protected float calculateScale(boolean isPaused) {
+        long timeDelta = Util.getMeasuringTimeMs() - this.startedTickingTimeMs;
+        float scale = MathHelper.lerp(timeDelta / 300.0F * this.scaleMultiplier, 0.025F * this.distance * 0.5F * this.scaleMultiplier * this.scaleMultiplier, 0.0125F * this.distance * 0.5F * this.scaleMultiplier);
+        scale -= 0.00025 * this.textWidth;
+        scale = MathHelper.clamp(scale, 0.0125F * this.distance * 0.5F * this.scaleMultiplier, 0.025F * this.distance * 0.5F * this.scaleMultiplier * this.scaleMultiplier);
+
+        if (isPaused && !this.paused) {
+            this.passedTimeMs = timeDelta;
+            this.paused = true;
+        } else if (isPaused) {
+            return this.currentScale;
+        } else if (this.paused) {
+            this.startedTickingTimeMs = Util.getMeasuringTimeMs() - this.passedTimeMs;
+            this.paused = false;
+            return this.calculateScale(false);
         }
 
-        RenderSystem.disableBlend();
-        matrix.pop();
+        return this.currentScale = scale;
     }
 
     public void markDead() {
