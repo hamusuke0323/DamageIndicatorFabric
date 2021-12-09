@@ -10,8 +10,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.damage.ProjectileDamageSource;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
 import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.LiteralText;
@@ -56,13 +54,6 @@ public abstract class LivingEntityMixin extends Entity implements ILivingEntityI
     private void damage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (!this.world.isClient && !cir.getReturnValue() && !this.isDead() && (float) this.timeUntilRegen <= 10.0F && amount > this.lastDamageTaken) {
             this.sendImmune();
-        }
-    }
-
-    @Inject(method = "applyDamage", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/LivingEntity;applyArmorToDamage(Lnet/minecraft/entity/damage/DamageSource;F)F", shift = At.Shift.BEFORE))
-    private void applyDamageFirst(DamageSource source, float amount, CallbackInfo ci) {
-        if (source instanceof ProjectileDamageSource && source.getAttacker() instanceof LivingEntityInvoker livingEntityInvoker && source.getSource() instanceof PersistentProjectileEntity projectile) {
-            livingEntityInvoker.setCritical(projectile.isCritical());
         }
     }
 
