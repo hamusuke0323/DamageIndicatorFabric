@@ -1,7 +1,7 @@
 package com.hamusuke.damageindicator.client.renderer;
 
-import com.hamusuke.damageindicator.DamageIndicator;
 import com.hamusuke.damageindicator.client.DamageIndicatorClient;
+import com.hamusuke.damageindicator.math.AdditionalMathHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -12,34 +12,30 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3f;
 
 @Environment(EnvType.CLIENT)
 public class IndicatorRenderer {
-    private static final Box EMPTY_BOUNDING_BOX = new Box(0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D);
+    protected static final int maxAge = 20;
+    protected static final float NORMAL = 1.0F;
+    protected static final float CRITICAL = 2.5F;
+    private static final MinecraftClient mc = MinecraftClient.getInstance();
     protected double prevPosX;
     protected double prevPosY;
     protected double prevPosZ;
     protected double x;
     protected double y;
     protected double z;
-    protected double velocityX;
-    protected double velocityY;
-    protected double velocityZ;
-    private Box boundingBox;
-    private boolean moveTooQuickly;
+    protected final String source;
     protected boolean dead;
-    protected float spacingXZ;
-    protected float spacingY;
     protected int age;
-    protected int maxAge;
-    protected float gravityStrength;
-    protected float g;
     protected final Text text;
-    protected float textWidth = -1.0F;
+    protected final boolean crit;
+    protected float velocity;
+    protected int color;
+    protected int textWidth = -1;
     protected long startedTickingTimeMs;
     protected final float distance;
     protected final float scaleMultiplier;
@@ -47,21 +43,17 @@ public class IndicatorRenderer {
     protected boolean paused;
     protected long passedTimeMs;
 
-    public IndicatorRenderer(double x, double y, double z, Text text, float distance, float scaleMultiplier) {
-        this.boundingBox = EMPTY_BOUNDING_BOX;
-        this.spacingXZ = 0.6F;
-        this.spacingY = 1.8F;
-        this.g = 0.98F;
-        this.setBoundingBoxSpacing(0.2F, 0.2F);
+    public IndicatorRenderer(double x, double y, double z, Text text, String source, boolean crit, float distance) {
         this.setPos(x, y, z);
         this.prevPosX = x;
         this.prevPosY = y;
         this.prevPosZ = z;
-        this.maxAge = 20;
-        this.gravityStrength = -0.2F;
         this.text = text;
+        this.source = source;
+        this.crit = crit;
+        this.syncIndicatorColor();
         this.distance = distance;
-        this.scaleMultiplier = MathHelper.clamp(scaleMultiplier, DamageIndicator.NORMAL, DamageIndicator.CRITICAL);
+        this.scaleMultiplier = this.crit ? CRITICAL : NORMAL;
         this.startedTickingTimeMs = Util.getMeasuringTimeMs();
     }
 
@@ -70,64 +62,85 @@ public class IndicatorRenderer {
         this.prevPosY = this.y;
         this.prevPosZ = this.z;
 
-        if (this.age++ >= this.maxAge) {
+        if (this.age++ >= maxAge) {
             this.markDead();
-        } else if (this.age > this.maxAge / 2) {
-            this.velocityY -= 0.04D * (double) this.gravityStrength;
-            this.move(this.velocityX, this.velocityY, this.velocityZ);
-            this.velocityY *= this.g;
+        } else if (this.age > maxAge / 2) {
+            this.velocity += 0.008F;
+            this.velocity *= 0.98F;
+            this.moveOnHypotenuse3d(this.velocity);
+        } else {
+            if (this.currentScale != this.currentScale) {
+                this.calculateScale(mc.isPaused());
+            }
+
+            this.moveOnHypotenuse3d(this.currentScale * (10.0F / (float) maxAge));
+        }
+    }
+
+    private void moveOnHypotenuse3d(float lengthOfHypotenuseToMove) {
+        if (mc.getEntityRenderDispatcher().camera == null) {
+            this.markDead();
+        } else {
+            float phi = -mc.getEntityRenderDispatcher().camera.getYaw() * 0.017453292F;
+            float theta = mc.getEntityRenderDispatcher().camera.getPitch() * 0.017453292F;
+            float hypotenuse2d = lengthOfHypotenuseToMove * MathHelper.sin(theta);
+            this.setPos(this.x + hypotenuse2d * MathHelper.sin(phi), this.y + lengthOfHypotenuseToMove * MathHelper.cos(theta), this.z + hypotenuse2d * MathHelper.cos(phi));
         }
     }
 
     public void render(MatrixStack matrix, VertexConsumerProvider vertexConsumers, Camera camera, float tickDelta) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        TextRenderer textRenderer = DamageIndicatorClient.getOrDefault(client.textRenderer);
+        TextRenderer textRenderer = mc.textRenderer;
 
-        if (this.textWidth < 0.0F) {
-            this.textWidth = (float) textRenderer.getWidth(this.text);
+        if (this.textWidth < 0) {
+            this.textWidth = textRenderer.getWidth(this.text);
         }
 
-        if (this.textWidth == 0.0F) {
+        if (this.textWidth == 0) {
             this.markDead();
-            return;
+        } else {
+            float scale = this.calculateScale(mc.isPaused());
+            double x = MathHelper.lerp(tickDelta, this.prevPosX, this.x);
+            double y = MathHelper.lerp(tickDelta, this.prevPosY, this.y);
+            double z = MathHelper.lerp(tickDelta, this.prevPosZ, this.z);
+            Vec3d camPos = camera.getPos();
+            double camX = camPos.x;
+            double camY = camPos.y;
+            double camZ = camPos.z;
+
+            matrix.push();
+            matrix.translate(x - camX, y - camY, z - camZ);
+            matrix.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(-camera.getYaw()));
+            matrix.multiply(Vec3f.POSITIVE_X.getDegreesQuaternion(camera.getPitch()));
+            matrix.scale(-scale, -scale, scale);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(false);
+
+            int alpha = 255;
+            if (this.age > maxAge / 2) {
+                alpha = (int) ((((float) (maxAge + 1) / (float) this.age) - 1.0F) * 255.0F);
+            }
+            alpha = MathHelper.clamp(alpha, 0, 255);
+
+            int color = this.color;
+            if (this.age <= 3) {
+                color = AdditionalMathHelper.lerpColor((Util.getMeasuringTimeMs() - this.startedTickingTimeMs) / (7.5F * (float) maxAge), color);
+            }
+
+            textRenderer.draw(this.text, -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, color + (alpha << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, 15728880);
+            RenderSystem.disableBlend();
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(true);
+            matrix.pop();
         }
-
-        float scale = this.calculateScale(client.isPaused());
-        double x = MathHelper.lerp(tickDelta, this.prevPosX, this.x);
-        double y = MathHelper.lerp(tickDelta, this.prevPosY, this.y);
-        double z = MathHelper.lerp(tickDelta, this.prevPosZ, this.z);
-        Vec3d camPos = camera.getPos();
-        double camX = camPos.x;
-        double camY = camPos.y;
-        double camZ = camPos.z;
-
-        matrix.push();
-        matrix.translate(x - camX, y - camY, z - camZ);
-        matrix.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(-camera.getYaw()));
-        matrix.multiply(Vec3f.POSITIVE_X.getDegreesQuaternion(camera.getPitch()));
-        matrix.scale(-scale, -scale, scale);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(false);
-
-        int l = 255;
-        if (this.age > this.maxAge / 2 && this.age != 0) {
-            l = (int) ((((float) (this.maxAge + 1) / (float) this.age) - 1.0F) * 255.0F);
-        }
-        l = MathHelper.clamp(l, 0, 255);
-        textRenderer.draw(this.text, -textRenderer.getWidth(this.text) / 2.0F, -textRenderer.fontHeight / 2.0F, 16777215 + (l << 24), false, matrix.peek().getModel(), vertexConsumers, true, 0, 15728880);
-        RenderSystem.disableBlend();
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(true);
-        matrix.pop();
     }
 
     protected float calculateScale(boolean isPaused) {
         long timeDelta = Util.getMeasuringTimeMs() - this.startedTickingTimeMs;
-        float scale = MathHelper.lerp(timeDelta / 300.0F * this.scaleMultiplier, 0.025F * this.distance * 0.5F * this.scaleMultiplier * this.scaleMultiplier, 0.0125F * this.distance * 0.5F * this.scaleMultiplier);
-        scale -= 0.00025 * this.textWidth;
-        scale = MathHelper.clamp(scale, 0.0125F * this.distance * 0.5F * this.scaleMultiplier, 0.025F * this.distance * 0.5F * this.scaleMultiplier * this.scaleMultiplier);
+        float scale = AdditionalMathHelper.convexUpwardQuadraticFunction(MathHelper.clamp(timeDelta / (12.5F * (float) maxAge), 0.0F, 1.0F), this.crit ? -0.2F : -0.5F, this.crit ? 2.0F : 0.5F, 0.00375F * this.distance * 1.732050807F * this.scaleMultiplier, 0.0075F * this.distance * 1.732050807F * this.scaleMultiplier * this.scaleMultiplier * (this.crit ? 1.0F : 0.8F));
+        scale -= 0.00025F * this.textWidth;
+        scale = MathHelper.clamp(scale, 0.0001F, Float.MAX_VALUE);
 
         if (isPaused && !this.paused) {
             this.passedTimeMs = timeDelta;
@@ -147,63 +160,17 @@ public class IndicatorRenderer {
         this.dead = true;
     }
 
-    protected void setBoundingBoxSpacing(float spacingXZ, float spacingY) {
-        if (spacingXZ != this.spacingXZ || spacingY != this.spacingY) {
-            this.spacingXZ = spacingXZ;
-            this.spacingY = spacingY;
-            Box box = this.getBoundingBox();
-            double d = (box.minX + box.maxX - (double) spacingXZ) / 2.0D;
-            double e = (box.minZ + box.maxZ - (double) spacingXZ) / 2.0D;
-            this.setBoundingBox(new Box(d, box.minY, e, d + (double) this.spacingXZ, box.minY + (double) this.spacingY, e + (double) this.spacingXZ));
-        }
+    public void syncIndicatorColor() {
+        this.color = DamageIndicatorClient.clientConfig.getRGBFromDamageSource(DamageIndicatorClient.clientConfig.changeColorWhenCrit.get() && this.crit ? "critical" : this.source);
     }
 
     public void setPos(double x, double y, double z) {
         this.x = x;
         this.y = y;
         this.z = z;
-        float f = this.spacingXZ / 2.0F;
-        float g = this.spacingY;
-        this.setBoundingBox(new Box(x - (double) f, y, z - (double) f, x + (double) f, y + (double) g, z + (double) f));
-    }
-
-    public void move(double dx, double dy, double dz) {
-        if (!this.moveTooQuickly) {
-            if (dx != 0.0D || dy != 0.0D || dz != 0.0D) {
-                this.setBoundingBox(this.getBoundingBox().offset(dx, dy, dz));
-                this.repositionFromBoundingBox();
-            }
-
-            if (Math.abs(dy) >= 9.999999747378752E-6D && Math.abs(dy) < 9.999999747378752E-6D) {
-                this.moveTooQuickly = true;
-            }
-
-            if (dx != dx) {
-                this.velocityX = 0.0D;
-            }
-
-            if (dz != dz) {
-                this.velocityZ = 0.0D;
-            }
-        }
-    }
-
-    protected void repositionFromBoundingBox() {
-        Box box = this.getBoundingBox();
-        this.x = (box.minX + box.maxX) / 2.0D;
-        this.y = box.minY;
-        this.z = (box.minZ + box.maxZ) / 2.0D;
     }
 
     public boolean isAlive() {
         return !this.dead;
-    }
-
-    public Box getBoundingBox() {
-        return this.boundingBox;
-    }
-
-    public void setBoundingBox(Box boundingBox) {
-        this.boundingBox = boundingBox;
     }
 }

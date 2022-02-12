@@ -12,11 +12,7 @@ group = project.maven_group
 
 repositories {
 	maven {
-		url = uri("https://maven.pkg.github.com/hamusuke0323/CriticaLib")
-		credentials {
-			username = System.getenv("GITHUB_USER")
-			password = System.getenv("GITHUB_KEY")
-		}
+		url "https://cursemaven.com"
 	}
 }
 
@@ -32,7 +28,7 @@ dependencies {
 	// PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
 	// You may need to force-disable transitiveness on them.
 
-	modImplementation "com.hamusuke:criticalib:1.0.2"
+	modImplementation "curse.maven:criticalib-554952:3557139"
 }
 
 processResources {
@@ -73,18 +69,6 @@ publishing {
 		mavenJava(MavenPublication) {
 			artifactId = archivesBaseName
 			from components.java
-		}
-	}
-
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-	repositories {
-		maven {
-			name = "GitHubPackages"
-			url = uri("https://maven.pkg.github.com/hamusuke0323/DamageIndicatorFabric")
-			credentials {
-				username = System.getenv("GITHUB_USER")
-				password = System.getenv("GITHUB_KEY")
-			}
 		}
 	}
 }

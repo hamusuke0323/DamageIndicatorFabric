@@ -23,7 +23,7 @@ public abstract class WorldRendererMixin {
 
     @Inject(method = "render", at = @At("TAIL"))
     private void render(MatrixStack matrices, float tickDelta, long limitTime, boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer, LightmapTextureManager lightmapTextureManager, Matrix4f matrix4f, CallbackInfo ci) {
-        if (!this.client.options.hudHidden && !DamageIndicatorClient.queue.isEmpty()) {
+        if (!DamageIndicatorClient.clientConfig.hideIndicator.get() && !DamageIndicatorClient.queue.isEmpty()) {
             this.client.getProfiler().push("damage indicator rendering");
             VertexConsumerProvider.Immediate impl = this.client.getBufferBuilders().getEntityVertexConsumers();
             matrices.push();

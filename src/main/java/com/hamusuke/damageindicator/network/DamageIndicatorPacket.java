@@ -4,54 +4,46 @@ import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 
 public class DamageIndicatorPacket {
-    private final double x;
-    private final double y;
-    private final double z;
+    private final int entityId;
     private final Text text;
-    private final float scaleMultiplier;
+    private final String source;
+    private final boolean crit;
 
-    public DamageIndicatorPacket(double x, double y, double z, Text text, float scaleMultiplier) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+    public DamageIndicatorPacket(int entityId, Text text, String source, boolean crit) {
+        this.entityId = entityId;
         this.text = text;
-        this.scaleMultiplier = scaleMultiplier;
+        this.source = source;
+        this.crit = crit;
     }
 
     public DamageIndicatorPacket(PacketByteBuf packetByteBuf) {
-        this.x = packetByteBuf.readDouble();
-        this.y = packetByteBuf.readDouble();
-        this.z = packetByteBuf.readDouble();
+        this.entityId = packetByteBuf.readVarInt();
         this.text = packetByteBuf.readText();
-        this.scaleMultiplier = packetByteBuf.isReadable() ? packetByteBuf.readFloat() : 1.0F;
+        this.source = packetByteBuf.readString();
+        this.crit = packetByteBuf.readBoolean();
     }
 
     public PacketByteBuf write(PacketByteBuf packetByteBuf) {
-        packetByteBuf.writeDouble(this.x);
-        packetByteBuf.writeDouble(this.y);
-        packetByteBuf.writeDouble(this.z);
+        packetByteBuf.writeVarInt(this.entityId);
         packetByteBuf.writeText(this.text);
-        packetByteBuf.writeFloat(this.scaleMultiplier);
+        packetByteBuf.writeString(this.source);
+        packetByteBuf.writeBoolean(this.crit);
         return packetByteBuf;
     }
 
-    public double getX() {
-        return this.x;
-    }
-
-    public double getY() {
-        return this.y;
-    }
-
-    public double getZ() {
-        return this.z;
+    public int getEntityId() {
+        return this.entityId;
     }
 
     public Text getText() {
         return this.text;
     }
 
-    public float getScaleMultiplier() {
-        return this.scaleMultiplier;
+    public String getSource() {
+        return this.source;
+    }
+
+    public boolean isCrit() {
+        return this.crit;
     }
 }

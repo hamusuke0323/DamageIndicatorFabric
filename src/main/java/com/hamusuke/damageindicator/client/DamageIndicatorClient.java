@@ -2,43 +2,58 @@ package com.hamusuke.damageindicator.client;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Queues;
-import com.hamusuke.damageindicator.DamageIndicator;
+import com.hamusuke.damageindicator.client.gui.screen.ConfigScreen;
 import com.hamusuke.damageindicator.client.renderer.IndicatorRenderer;
-import com.hamusuke.damageindicator.invoker.client.FontManagerInvoker;
-import com.hamusuke.damageindicator.invoker.client.MinecraftClientInvoker;
+import com.hamusuke.damageindicator.config.ClientConfig;
 import com.hamusuke.damageindicator.network.DamageIndicatorPacket;
 import com.hamusuke.damageindicator.network.NetworkManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.FontStorage;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Environment(EnvType.CLIENT)
 public class DamageIndicatorClient implements ClientModInitializer {
-    private static final MinecraftClient client = MinecraftClient.getInstance();
     public static final Queue<IndicatorRenderer> queue = Queues.newLinkedBlockingDeque();
-    private static final AtomicReference<TextRenderer> customFont = new AtomicReference<>();
-
-    public static void addRenderer(double x, double y, double z, Text text, float scaleMultiplier) {
-        queue.add(new IndicatorRenderer(x, y, z, text, (float) client.gameRenderer.getCamera().getPos().distanceTo(new Vec3d(x, y, z)), scaleMultiplier));
-    }
+    public static final ClientConfig clientConfig = new ClientConfig(FabricLoader.getInstance().getConfigDir().resolve("damageindicator/config.json").toFile());
+    private static final KeyBinding OPEN_CONFIG = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.damageindicator.openConfig", GLFW.GLFW_KEY_V, "key.damageindicator.category.indicator"));
+    private static final KeyBinding HIDE_INDICATOR = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.damageindicator.hideIndicator.desc", GLFW.GLFW_KEY_B, "key.damageindicator.category.indicator"));
 
     public void onInitializeClient() {
+        clientConfig.load();
+
         ClientPlayNetworking.registerGlobalReceiver(NetworkManager.DAMAGE_PACKET_ID, (client, handler, buf, responseSender) -> {
-            DamageIndicatorPacket packet = new DamageIndicatorPacket(buf);
-            addRenderer(packet.getX(), packet.getY(), packet.getZ(), packet.getText(), packet.getScaleMultiplier());
+            if (client.world != null && client.player != null) {
+                DamageIndicatorPacket packet = new DamageIndicatorPacket(buf);
+                Entity entity = client.world.getEntityById(packet.getEntityId());
+
+                if (entity instanceof LivingEntity livingEntity) {
+                    double x = livingEntity.getParticleX(0.5D);
+                    double y = livingEntity.getBodyY(MathHelper.nextDouble(livingEntity.getRandom(), 0.5D, 1.2D));
+                    double z = livingEntity.getParticleZ(0.5D);
+                    Vec3d vec3d = new Vec3d(x, y, z);
+                    float distance = (float) client.gameRenderer.getCamera().getPos().distanceTo(vec3d);
+                    BlockHitResult result = client.world.raycast(new RaycastContext(client.player.getPos(), vec3d, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, client.player));
+                    if ((clientConfig.forciblyRenderIndicator.get() || result.getType() == HitResult.Type.MISS) && distance <= (float) clientConfig.renderDistance.get()) {
+                        queue.add(new IndicatorRenderer(x, y, z, packet.getText(), packet.getSource(), packet.isCrit(), distance));
+                    }
+                }
+            }
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -53,19 +68,15 @@ public class DamageIndicatorClient implements ClientModInitializer {
 
                 queue.removeAll(list);
             }
-        });
-    }
 
-    public static void createCustomFont() {
-        for (Map.Entry<Identifier, FontStorage> entry : ((FontManagerInvoker) ((MinecraftClientInvoker) client).getFontManager()).getFontStorages().entrySet()) {
-            Identifier identifier = entry.getKey();
-            if (identifier.getNamespace().equalsIgnoreCase(DamageIndicator.MOD_ID) || identifier.getPath().equalsIgnoreCase("default")) {
-                customFont.set(new TextRenderer((id) -> entry.getValue()));
+            while (OPEN_CONFIG.wasPressed()) {
+                client.setScreen(new ConfigScreen(client.currentScreen));
             }
-        }
-    }
 
-    public static TextRenderer getOrDefault(TextRenderer def) {
-        return customFont.get() == null ? def : customFont.get();
+            while (HIDE_INDICATOR.wasPressed()) {
+                clientConfig.hideIndicator.toggle();
+                clientConfig.save();
+            }
+        });
     }
 }

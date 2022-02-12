@@ -20,7 +20,7 @@ public abstract class PlayerEntityMixin extends LivingEntity implements ILivingE
 
     @Inject(method = "damage", at = @At("RETURN"))
     private void damage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        if (!this.world.isClient && !cir.getReturnValue() && !this.isDead() && !((Object) this instanceof ServerPlayerEntity)) {
+        if (!this.world.isClient && !cir.getReturnValueZ() && this.canSendImmune(amount) && !((Object) this instanceof ServerPlayerEntity)) {
             this.sendImmune();
         }
     }

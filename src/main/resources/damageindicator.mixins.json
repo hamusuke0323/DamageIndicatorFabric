@@ -11,10 +11,7 @@
     "WitherEntityMixin"
   ],
   "client": [
-    "client.WorldRendererMixin",
-    "client.FontManagerMixin",
-    "client.MinecraftClientMixin",
-    "client.SplashOverlayMixin"
+    "client.WorldRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

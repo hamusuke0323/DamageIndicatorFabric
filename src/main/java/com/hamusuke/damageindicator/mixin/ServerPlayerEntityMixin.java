@@ -18,7 +18,7 @@ public abstract class ServerPlayerEntityMixin extends PlayerEntityMixin {
 
     @Inject(method = "damage", at = @At("RETURN"))
     private void damage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        if (!cir.getReturnValue() && !this.isDead()) {
+        if (!cir.getReturnValueZ() && this.canSendImmune(amount)) {
             this.sendImmune();
         }
     }

@@ -3,7 +3,7 @@
   "id": "damageindicator",
   "version": "${version}",
   "name": "Damage Indicator",
-  "description": "simple damage indicator",
+  "description": "A Simple Damage Indicator",
   "authors": [
     "hamusuke2303"
   ],
