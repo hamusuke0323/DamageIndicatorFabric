@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "damageindicator",
+  "version": "${version}",
+  "name": "Damage Indicator",
+  "description": "A Simple Damage Indicator",
+  "authors": [
+    "hamusuke2303"
+  ],
+  "license": "CC0-1.0",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "com.hamusuke.damageindicator.client.DamageIndicatorClient"
+    ]
+  },
+  "mixins": [
+    "damageindicator.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.11.3",
+    "fabric": "*",
+    "minecraft": "1.18.x",
+    "java": ">=17",
+    "criticalib": ">=1.0.0"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}
